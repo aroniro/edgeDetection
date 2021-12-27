@@ -30,6 +30,23 @@ import org.opencv.imgproc.Imgproc
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.*
+import org.opencv.core.Mat
+
+import org.opencv.core.CvType
+import org.opencv.core.MatOfPoint2f
+import org.opencv.core.MatOfPoint
+import org.opencv.core.MatOfInt
+
+
+
+
+
+
+
+
+
+
+
 
 
 internal class OpenCvNativeBridge {
@@ -38,14 +55,14 @@ internal class OpenCvNativeBridge {
         private const val ANGLES_NUMBER = 4
         private const val EPSILON_CONSTANT = 0.02
         private const val CLOSE_KERNEL_SIZE = 10.0
-        private const val CANNY_THRESHOLD_LOW = 75.0
-        private const val CANNY_THRESHOLD_HIGH = 200.0
+        private const val CANNY_THRESHOLD_LOW = 80.0
+        private const val CANNY_THRESHOLD_HIGH = 100.0
         private const val CUTOFF_THRESHOLD = 155.0
         private const val TRUNCATE_THRESHOLD = 150.0
         private const val NORMALIZATION_MIN_VALUE = 0.0
         private const val NORMALIZATION_MAX_VALUE = 255.0
         private const val BLURRING_KERNEL_SIZE = 5.0
-        private const val DOWNSCALE_IMAGE_SIZE = 600.0
+        private const val DOWNSCALE_IMAGE_SIZE = 500.0
         private const val FIRST_MAX_CONTOURS = 10
     }
 
@@ -61,116 +78,215 @@ internal class OpenCvNativeBridge {
         return dstMat.toBitmap()
     }
 
+//    fun getContourEdgePoints(tempBitmap: Bitmap): List<PointF> {
+//        var point2f = getPoint(tempBitmap)
+//        if (point2f == null) point2f = MatOfPoint2f()
+//        val points: List<Point> = point2f.toArray().toList()
+//        val result: MutableList<PointF> = ArrayList()
+//
+//        for (i in points.indices) {
+//            result.add(PointF(points[i].x.toFloat(), points[i].y.toFloat()))
+//        }
+//
+//        return result
+//    }
+
     fun getContourEdgePoints(tempBitmap: Bitmap): List<PointF> {
         var point2f = getPoint(tempBitmap)
-        if (point2f == null) point2f = MatOfPoint2f()
-        val points: List<Point> = point2f.toArray().toList()
+//        if (point2f == null) point2f = MatOfPoint2f()
+        val points: List<PointF> = point2f.toArray().toList() as List<PointF>
         val result: MutableList<PointF> = ArrayList()
+
         for (i in points.indices) {
-            result.add(PointF(points[i].x.toFloat(), points[i].y.toFloat()))
+            result.add(PointF(points[i].x, points[i].y))
         }
 
         return result
     }
 
-    fun getPoint(bitmap: Bitmap): MatOfPoint2f? {
+    fun getPoint(bitmap: Bitmap): ArrayList<PointF> {
         val src = bitmap.toMat()
 
-        val ratio = DOWNSCALE_IMAGE_SIZE / max(src.width(), src.height())
-        val downscaledSize = Size(src.width() * ratio, src.height() * ratio)
-        val downscaled = Mat(downscaledSize, src.type())
-        Imgproc.resize(src, downscaled, downscaledSize)
-        val largestRectangle = detectLargestQuadrilateral(downscaled)
+//        val downscaledSize = Size(src.width() * ratio, src.height() * ratio)
+//        val downscaled = Mat(downscaledSize, src.type())
+//        Imgproc.resize(src, downscaled, downscaledSize)
+        val originalSize = src.size()
+        val largestRectangle = detectLargestQuadrilateral(src)
 
-        return largestRectangle?.contour?.scaleRectangle(1f / ratio)
+//        val heightWithRatio = originalSize.width / ratio
+
+        val mat: Mat?
+        val points : ArrayList<PointF> = ArrayList()
+        if(largestRectangle != null){
+            val ratio: Double = originalSize.height / 500
+//            val ratio = 500 / max(src.width(), src.height())
+//            val widthWithRatio = originalSize.height / ratio
+//            val originalPoints = arrayOfNulls<Point>(4)
+
+            points.add(PointF(largestRectangle.points[0].x.toFloat(), largestRectangle.points[0].y.toFloat()))
+            points.add(PointF(largestRectangle.points[1].x.toFloat(), largestRectangle.points[1].y.toFloat()))
+            points.add(PointF(largestRectangle.points[3].x.toFloat(), largestRectangle.points[3].y.toFloat()))
+            points.add(PointF(largestRectangle.points[2].x.toFloat(), largestRectangle.points[2].y.toFloat()))
+//            mat = fourPointTransform(src, originalPoints as Array<Point>)
+//            mat = Mat(largestRectangle.points)
+        }else{
+//            mat = Mat(src.size(), CvType.CV_8UC4)
+//            src.copyTo
+            points.add(PointF((originalSize.width * 0.14f).toFloat(), originalSize.height.toFloat() * 0.13f))
+            points.add(PointF((originalSize.width * 0.84f).toFloat(), originalSize.height.toFloat() * 0.13f))
+            points.add(PointF((originalSize.width * 0.14f).toFloat(), originalSize.height.toFloat() * 0.83f))
+            points.add(PointF((originalSize.width * 0.84f).toFloat(), originalSize.height.toFloat() * 0.83f))
+        }
+
+//        if (mat != null) {
+//            enhanceDocument(mat)
+//        }
+
+
+//        val mat2f = MatOfPoint2f()
+//        mat?.convertTo(mat2f, CvType.CV_32FC1)
+        return points
+    }
+
+    private fun fourPointTransform(src: Mat, pts: Array<Point>): Mat? {
+        val ratio = src.size().height / 500
+        val tl = pts[0]
+        val tr = pts[1]
+        val br = pts[2]
+        val bl = pts[3]
+        val widthA = Math.sqrt(Math.pow(br.x - bl.x, 2.0) + Math.pow(br.y - bl.y, 2.0))
+        val widthB = Math.sqrt(Math.pow(tr.x - tl.x, 2.0) + Math.pow(tr.y - tl.y, 2.0))
+        val dw = Math.max(widthA, widthB) * ratio
+        val maxWidth = java.lang.Double.valueOf(dw).toInt()
+        val heightA = Math.sqrt(Math.pow(tr.x - br.x, 2.0) + Math.pow(tr.y - br.y, 2.0))
+        val heightB = Math.sqrt(Math.pow(tl.x - bl.x, 2.0) + Math.pow(tl.y - bl.y, 2.0))
+        val dh = Math.max(heightA, heightB) * ratio
+        val maxHeight = java.lang.Double.valueOf(dh).toInt()
+        val doc = Mat(maxHeight, maxWidth, CvType.CV_8UC4)
+        val src_mat = Mat(4, 1, CvType.CV_32FC2)
+        val dst_mat = Mat(4, 1, CvType.CV_32FC2)
+        src_mat.put(
+            0,
+            0,
+            tl.x * ratio,
+            tl.y * ratio,
+            tr.x * ratio,
+            tr.y * ratio,
+            br.x * ratio,
+            br.y * ratio,
+            bl.x * ratio,
+            bl.y * ratio
+        )
+        dst_mat.put(0, 0, 0.0, 0.0, dw, 0.0, dw, dh, 0.0, dh)
+        val m = Imgproc.getPerspectiveTransform(src_mat, dst_mat)
+        Imgproc.warpPerspective(src, doc, m, doc.size())
+        return doc
+    }
+
+    private fun enhanceDocument(src: Mat) {
+        Imgproc.cvtColor(src, src, Imgproc.COLOR_RGBA2GRAY)
+        src.convertTo(src, CvType.CV_8UC1, 1.0, 10.0)
     }
 
     // patch from Udayraj123 (https://github.com/Udayraj123/LiveEdgeDetection)
     fun detectLargestQuadrilateral(src: Mat): Quadrilateral? {
-        val destination = Mat()
-        Imgproc.blur(src, src, Size(BLURRING_KERNEL_SIZE, BLURRING_KERNEL_SIZE))
 
-        Core.normalize(src, src, NORMALIZATION_MIN_VALUE, NORMALIZATION_MAX_VALUE, Core.NORM_MINMAX)
+//        val ratio = src.size().height / 500
+//        val height = src.size().height / ratio
+//        val width = src.size().width / ratio
+//        val size = Size(width, height)
+//
+        val resizedImage = Mat(src.size(), CvType.CV_8UC3)
+//
+//        Imgproc.resize(src, resizedImage, size)
 
-        Imgproc.threshold(src, src, TRUNCATE_THRESHOLD, NORMALIZATION_MAX_VALUE, Imgproc.THRESH_TRUNC)
-        Core.normalize(src, src, NORMALIZATION_MIN_VALUE, NORMALIZATION_MAX_VALUE, Core.NORM_MINMAX)
+        Imgproc.cvtColor(src, resizedImage, Imgproc.COLOR_RGBA2GRAY, 4);
 
-        Imgproc.Canny(src, destination, CANNY_THRESHOLD_HIGH, CANNY_THRESHOLD_LOW)
+        Imgproc.GaussianBlur(resizedImage, resizedImage, Size(5.0, 5.0), 0.0);
 
-        Imgproc.threshold(destination, destination, CUTOFF_THRESHOLD, NORMALIZATION_MAX_VALUE, Imgproc.THRESH_TOZERO)
+        Imgproc.Canny(resizedImage, resizedImage, CANNY_THRESHOLD_LOW, CANNY_THRESHOLD_HIGH, 3, false)
 
-        Imgproc.morphologyEx(
-            destination, destination, Imgproc.MORPH_CLOSE,
-            Mat(Size(CLOSE_KERNEL_SIZE, CLOSE_KERNEL_SIZE), CvType.CV_8UC1, Scalar(NORMALIZATION_MAX_VALUE)),
-            Point(-1.0, -1.0), 1
-        )
+        val largestContour: List<MatOfPoint>? = findLargestContours(resizedImage)
 
-        val largestContour: List<MatOfPoint>? = findLargestContours(destination)
+        resizedImage.release()
         if (null != largestContour) {
-            return findQuadrilateral(largestContour)
+            return getQuadrilateral(largestContour, src.size())
         }
         return null
     }
 
-    private fun findQuadrilateral(mContourList: List<MatOfPoint>): Quadrilateral? {
+    private fun findContours(src: Mat): ArrayList<MatOfPoint?> {
+        val grayImage: Mat
+        val cannedImage: Mat
+        val resizedImage: Mat
+        val ratio = src.size().height / 500
+        val height = java.lang.Double.valueOf(src.size().height / ratio).toInt()
+        val width = java.lang.Double.valueOf(src.size().width / ratio).toInt()
+        val size = Size(width.toDouble(), height.toDouble())
+        resizedImage = Mat(size, CvType.CV_8UC4)
+        grayImage = Mat(size, CvType.CV_8UC4)
+        cannedImage = Mat(size, CvType.CV_8UC1)
+        Imgproc.resize(src, resizedImage, size)
+        Imgproc.cvtColor(resizedImage, grayImage, Imgproc.COLOR_RGBA2GRAY, 4)
+        Imgproc.GaussianBlur(grayImage, grayImage, Size(5.0, 5.0), 0.0)
+        Imgproc.Canny(grayImage, cannedImage, 80.0, 100.0, 3, false)
+        val contours: ArrayList<MatOfPoint?> = ArrayList()
+        val hierarchy = Mat()
+        Imgproc.findContours(
+            cannedImage,
+            contours,
+            hierarchy,
+            Imgproc.RETR_TREE,
+            Imgproc.CHAIN_APPROX_SIMPLE
+        )
+        hierarchy.release()
+        contours.sortWith { lhs, rhs ->
+            Imgproc.contourArea(rhs).compareTo(Imgproc.contourArea(lhs))
+        }
+        resizedImage.release()
+        grayImage.release()
+        cannedImage.release()
+        return contours
+    }
+
+    private fun getQuadrilateral(contours: List<MatOfPoint>, srcSize: Size): Quadrilateral? {
+        val ratio = srcSize.height / 500
+        val height = java.lang.Double.valueOf(srcSize.height / ratio).toInt()
+        val width = java.lang.Double.valueOf(srcSize.width / ratio).toInt()
+        val size = Size(width.toDouble(), height.toDouble())
+        for (c in contours) {
+            val c2f = MatOfPoint2f(*c.toArray())
+            val peri = Imgproc.arcLength(c2f, true)
+            val approx = MatOfPoint2f()
+            Imgproc.approxPolyDP(c2f, approx, 0.02 * peri, true)
+            val points = approx.toArray()
+
+            // select biggest 4 angles polygon
+            // if (points.length == 4) {
+            val foundPoints = sortPoints(points)
+            if (insideArea(foundPoints, size)) {
+                val mat2f = MatOfPoint2f()
+                c.convertTo(mat2f, CvType.CV_32FC2)
+                return Quadrilateral(mat2f, foundPoints)
+            }
+            // }
+        }
+        return null
+    }
+
+    private fun findQuadrilateral(mContourList: List<MatOfPoint>, mSize: Size): Quadrilateral? {
         for (c in mContourList) {
             val c2f = MatOfPoint2f(*c.toArray())
             val peri = Imgproc.arcLength(c2f, true)
             val approx = MatOfPoint2f()
             Imgproc.approxPolyDP(c2f, approx, EPSILON_CONSTANT * peri, true)
+
             val points = approx.toArray()
-            // select biggest 4 angles polygon
-            if (approx.rows() == ANGLES_NUMBER) {
-                val foundPoints: Array<Point> = sortPoints(points)
+
+            val foundPoints: Array<Point> = sortPoints(points)
+
+            if(insideArea(foundPoints, mSize)){
                 return Quadrilateral(approx, foundPoints)
-            } else if(approx.rows() == 5) {
-                // if document has a bent corner
-                var shortestDistance = Int.MAX_VALUE.toDouble()
-                var shortestPoint1: Point? = null
-                var shortestPoint2: Point? = null
-
-                var diagonal = 0.toDouble()
-                var diagonalPoint1: Point? = null
-                var diagonalPoint2: Point? = null
-
-                for (i in 0 until 4) {
-                    for (j in i + 1 until 5) {
-                        val d = distance(points[i], points[j])
-                        if (d < shortestDistance) {
-                            shortestDistance = d
-                            shortestPoint1 = points[i]
-                            shortestPoint2 = points[j]
-                        }
-                        if(d > diagonal) {
-                            diagonal = d
-                            diagonalPoint1 = points[i]
-                            diagonalPoint2 = points[j]
-                        }
-                    }
-                }
-
-                val trianglePointWithHypotenuse: Point? = points.toList().minus(arrayListOf(shortestPoint1, shortestPoint2, diagonalPoint1, diagonalPoint2))[0]
-
-                val newPoint = if(trianglePointWithHypotenuse!!.x > shortestPoint1!!.x && trianglePointWithHypotenuse.x > shortestPoint2!!.x &&
-                    trianglePointWithHypotenuse.y > shortestPoint1.y && trianglePointWithHypotenuse.y > shortestPoint2.y) {
-                    Point(min(shortestPoint1.x, shortestPoint2.x), min(shortestPoint1.y, shortestPoint2.y))
-                } else if(trianglePointWithHypotenuse.x < shortestPoint1.x && trianglePointWithHypotenuse.x < shortestPoint2!!.x &&
-                    trianglePointWithHypotenuse.y > shortestPoint1.y && trianglePointWithHypotenuse.y > shortestPoint2.y) {
-                    Point(max(shortestPoint1.x, shortestPoint2.x), min(shortestPoint1.y, shortestPoint2.y))
-                } else if(trianglePointWithHypotenuse.x < shortestPoint1.x && trianglePointWithHypotenuse.x < shortestPoint2!!.x &&
-                        trianglePointWithHypotenuse.y < shortestPoint1.y && trianglePointWithHypotenuse.y < shortestPoint2.y) {
-                     Point(max(shortestPoint1.x, shortestPoint2.x), max(shortestPoint1.y, shortestPoint2.y))
-                } else if(trianglePointWithHypotenuse.x > shortestPoint1.x && trianglePointWithHypotenuse.x > shortestPoint2!!.x &&
-                    trianglePointWithHypotenuse.y < shortestPoint1.y && trianglePointWithHypotenuse.y < shortestPoint2.y) {
-                     Point(min(shortestPoint1.x, shortestPoint2.x), max(shortestPoint1.y, shortestPoint2.y))
-                } else {
-                    Point(0.0, 0.0)
-                }
-
-                val sortedPoints = sortPoints(arrayOf(trianglePointWithHypotenuse, diagonalPoint1!!, diagonalPoint2!!, newPoint))
-                val newApprox = MatOfPoint2f()
-                newApprox.fromArray(*sortedPoints)
-                return Quadrilateral(newApprox, sortedPoints)
             }
         }
         return null
@@ -199,11 +315,39 @@ internal class OpenCvNativeBridge {
         }.toTypedArray()
     }
 
+    private fun insideArea(rp: Array<Point>, size: Size): Boolean {
+        val width = java.lang.Double.valueOf(size.width).toInt()
+        val height = java.lang.Double.valueOf(size.height).toInt()
+        val minimumSize = width / 10
+        val isANormalShape =
+            rp[0].x !== rp[1].x && rp[1].y !== rp[0].y && rp[2].y !== rp[3].y && rp[3].x !== rp[2].x
+        val isBigEnough = (rp[1].x - rp[0].x >= minimumSize && rp[2].x - rp[3].x >= minimumSize
+                && rp[3].y - rp[0].y >= minimumSize && rp[2].y - rp[1].y >= minimumSize)
+        val leftOffset = rp[0].x - rp[3].x
+        val rightOffset = rp[1].x - rp[2].x
+        val bottomOffset = rp[0].y - rp[1].y
+        val topOffset = rp[2].y - rp[3].y
+        val isAnActualRectangle = (leftOffset <= minimumSize && leftOffset >= -minimumSize
+                && rightOffset <= minimumSize && rightOffset >= -minimumSize
+                && bottomOffset <= minimumSize && bottomOffset >= -minimumSize
+                && topOffset <= minimumSize && topOffset >= -minimumSize)
+        return isANormalShape && isAnActualRectangle && isBigEnough
+    }
+
     private fun findLargestContours(inputMat: Mat): List<MatOfPoint>? {
         val mHierarchy = Mat()
         val mContourList: List<MatOfPoint> = ArrayList()
         //finding contours - as we are sorting by area anyway, we can use RETR_LIST - faster than RETR_EXTERNAL.
-        Imgproc.findContours(inputMat, mContourList, mHierarchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE)
+        //finding contours - as we are sorting by area anyway, we can use RETR_LIST - faster than RETR_EXTERNAL.
+        Imgproc.findContours(
+            inputMat,
+            mContourList,
+            mHierarchy,
+            Imgproc.RETR_LIST,
+            Imgproc.CHAIN_APPROX_SIMPLE
+        )
+
+        // Convert the contours to their Convex Hulls i.e. removes minor nuances in the contour
 
         // Convert the contours to their Convex Hulls i.e. removes minor nuances in the contour
         val mHullList: MutableList<MatOfPoint> = ArrayList()
@@ -213,16 +357,21 @@ internal class OpenCvNativeBridge {
             mHullList.add(hull2Points(tempHullIndices, mContourList[i]))
         }
         // Release mContourList as its job is done
-        for (c in mContourList) {
-            c.release()
-        }
+        // Release mContourList as its job is done
+        for (c in mContourList) c.release()
         tempHullIndices.release()
         mHierarchy.release()
+
         if (mHullList.size != 0) {
-            mHullList.sortWith { lhs, rhs ->
-                Imgproc.contourArea(rhs).compareTo(Imgproc.contourArea(lhs))
+            Collections.sort(
+                mHullList
+            ) { lhs, rhs ->
+                java.lang.Double.compare(
+                    Imgproc.contourArea(rhs),
+                    Imgproc.contourArea(lhs)
+                )
             }
-            return mHullList.subList(0, min(mHullList.size, FIRST_MAX_CONTOURS))
+            return mHullList.subList(0, Math.min(mHullList.size, 5))
         }
         return null
     }

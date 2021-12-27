@@ -33,7 +33,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.zynksoftware.documentscanner.R
 import com.zynksoftware.documentscanner.common.extensions.yuvToRgba
-import com.zynksoftware.documentscanner.common.utils.ImageDetectionProperties
 import com.zynksoftware.documentscanner.common.utils.OpenCvNativeBridge
 import com.zynksoftware.documentscanner.model.DocumentScannerErrorModel
 import com.zynksoftware.documentscanner.model.DocumentScannerErrorModel.ErrorMessage
@@ -42,8 +41,6 @@ import org.opencv.core.MatOfPoint2f
 import org.opencv.core.Point
 import org.opencv.core.Size
 import java.io.File
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 internal class ScanSurfaceView : FrameLayout {
@@ -183,26 +180,38 @@ internal class ScanSurfaceView : FrameLayout {
     }
 
     private fun drawLargestRect(approx: MatOfPoint2f, points: Array<Point>, stdSize: Size) {
+
+        val rescaledPoints = arrayOfNulls<Point>(4)
+
+        val ratio: Double = stdSize.height / 500
+
+        for (i in 0..3) {
+            val x: Int = java.lang.Double.valueOf(points.get(i).x * ratio).toInt()
+            val y: Int = java.lang.Double.valueOf(points.get(i).y * ratio).toInt()
+            rescaledPoints[i] = Point(x.toDouble(), y.toDouble())
+        }
+
         // Attention: axis are swapped
         val previewWidth = stdSize.height.toFloat()
         val previewHeight = stdSize.width.toFloat()
 
-        val resultWidth = max(previewWidth - points[0].y.toFloat(), previewWidth - points[1].y.toFloat()) -
-                min(previewWidth - points[2].y.toFloat(), previewWidth - points[3].y.toFloat())
+//        val resultWidth = max(previewWidth - points[0].y.toFloat(), previewWidth - points[1].y.toFloat()) -
+//                min(previewWidth - points[2].y.toFloat(), previewWidth - points[3].y.toFloat())
+//
+//        val resultHeight = max(points[1].x.toFloat(), points[2].x.toFloat()) - min(points[0].x.toFloat(), points[3].x.toFloat())
+//
+//        val imgDetectionPropsObj = ImageDetectionProperties(previewWidth.toDouble(), previewHeight.toDouble(),
+//            points[0], points[1], points[2], points[3], resultWidth.toInt(), resultHeight.toInt())
 
-        val resultHeight = max(points[1].x.toFloat(), points[2].x.toFloat()) - min(points[0].x.toFloat(), points[3].x.toFloat())
-
-        val imgDetectionPropsObj = ImageDetectionProperties(previewWidth.toDouble(), previewHeight.toDouble(),
-            points[0], points[1], points[2], points[3], resultWidth.toInt(), resultHeight.toInt())
-        if (imgDetectionPropsObj.isNotValidImage(approx)) {
-            scanCanvasView.clearShape()
-            cancelAutoCapture()
-        } else {
+//        if (imgDetectionPropsObj.isNotValidImage(approx)) {
+//            scanCanvasView.clearShape()
+//            cancelAutoCapture()
+//        } else {
             if (!isAutoCaptureScheduled) {
                 scheduleAutoCapture()
             }
-            scanCanvasView.showShape(previewWidth, previewHeight, points)
-        }
+            scanCanvasView.showShape(previewWidth, previewHeight, rescaledPoints as Array<Point>)
+//        }
     }
 
     private fun scheduleAutoCapture() {

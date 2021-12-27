@@ -7,7 +7,9 @@
     <com.zynksoftware.documentscanner.ui.components.scansurface.ScanSurfaceView
         android:id="@+id/scanSurfaceView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" >
+
+    </com.zynksoftware.documentscanner.ui.components.scansurface.ScanSurfaceView>
 
     <RelativeLayout
         android:layout_width="match_parent"

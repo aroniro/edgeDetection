@@ -35,7 +35,7 @@ internal class ImageDetectionProperties(
     }
 
     fun isNotValidImage(approx: MatOfPoint2f): Boolean {
-        return isEdgeTouching || isAngleNotCorrect(approx) || isDetectedAreaBelowLimits()
+        return isEdgeTouching || isAngleNotCorrect(approx) //|| isDetectedAreaBelowLimits()
     }
 
     private fun isAngleNotCorrect(approx: MatOfPoint2f): Boolean {
@@ -43,15 +43,16 @@ internal class ImageDetectionProperties(
     }
 
     private val isRightEdgeDistorted: Boolean
-        get() = abs(topRightPoint.y - bottomRightPoint.y) > 100
+        get() = abs(topRightPoint.y - bottomRightPoint.y) > 50
 
     private val isLeftEdgeDistorted: Boolean
-        get() = abs(topLeftPoint.y - bottomLeftPoint.y) > 100
+        get() = abs(topLeftPoint.y - bottomLeftPoint.y) > 50
 
     private fun getMaxCosine(approx: MatOfPoint2f): Boolean {
         var maxCosine = 0.0
         val approxPoints = approx.toArray()
         maxCosine = MathUtils.getMaxCosine(maxCosine, approxPoints)
+
         return maxCosine >= SMALLEST_ANGLE_COS
     }
 
